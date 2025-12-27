@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Distance Tracker</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button, select { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+
+<h2>Smart Distance Tracker</h2>
+
+<select id="mode" onchange="changeMode()">
+    <option value="walking">Walking</option>
+    <option value="cycle">Cycle</option>
+    <option value="bike">Bike</option>
+    <option value="car">Car</option>
+</select>
+
+<br>
+
+<button onclick="startTracking()">Start</button>
+<button onclick="stopTracking()">Stop</button>
+
+<h3 id="status">Status: Not started</h3>
+<h3 id="result"></h3>
+
+<script>
+let watchId = null;
+let lastLat = null;
+let lastLon = null;
+let currentMode = "walking";
+
+let distances = {
+    walking: 0,
+    cycle: 0,
+    bike: 0,
+    car: 0
+};
+
+function toRad(value) {
+    return value * Math.PI / 180;
+}
+
+function calcDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function startTracking() {
+    if (watchId !== null) return;
+
+    navigator.geolocation.getCurrentPosition(pos => {
+        lastLat = pos.coords.latitude;
+        lastLon = pos.coords.longitude;
+        document.getElementById("status").innerText = "Tracking started";
+    });
+
+    watchId = navigator.geolocation.watchPosition(pos => {
+        let lat = pos.coords.latitude;
+        let lon = pos.coords.longitude;
+
+        if (lastLat !== null) {
+            let d = calcDistance(lastLat, lastLon, lat, lon);
+            distances[currentMode] += d;
+        }
+
+        lastLat = lat;
+        lastLon = lon;
+    }, null, { enableHighAccuracy: true });
+}
+
+function changeMode() {
+    currentMode = document.getElementById("mode").value;
+    document.getElementById("status").innerText = "Mode changed to: " + currentMode;
+}
+
+function stopTracking() {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+
+    document.getElementById("result").innerHTML = `
+        <b>Total Distance:</b><br>
+        Walking: ${distances.walking.toFixed(2)} km<br>
+        Cycle: ${distances.cycle.toFixed(2)} km<br>
+        Bike: ${distances.bike.toFixed(2)} km<br>
+        Car: ${distances.car.toFixed(2)} km
+    `;
+
+    document.getElementById("status").innerText = "Tracking stopped";
+}
+</script>
+
+</body>
+</html>
